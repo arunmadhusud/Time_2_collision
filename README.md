@@ -54,10 +54,13 @@ This method is illustrated below:
 
 
 Generate the yolov8 weights file using the instrunctions given in the [repository](https://github.com/arunmadhusud/Fast_YOLOv8_CPP) and place the weights file in the dat folder. The folder structure should look like this:
-data
-  - yolov8n_int8.xml # OpenVINO IR file
-  - yolov8n_int8.bin # OpenVINO IR file
-  - yolov8n_st_quant.onnx # ONNX model file
+```bash
+Time_2_Collision
+  - data
+    - yolov8n_int8.xml # OpenVINO IR file
+    - yolov8n_int8.bin # OpenVINO IR file
+    - yolov8n_st_quant.onnx # ONNX model file
+'''
 
 Run the following commands to build the project:
 
