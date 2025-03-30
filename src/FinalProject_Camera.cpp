@@ -11,14 +11,61 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/features2d.hpp>
+#include <chrono>
 // #include <opencv2/xfeatures2d.hpp>
 // #include <opencv2/xfeatures2d/nonfree.hpp>
 
 #include "dataStructures.h"
 #include "matching2D.hpp"
-#include "objectDetection2D.hpp"
 #include "lidarData.hpp"
 #include "camFusion.hpp"
+#include "onnxruntime_inference/inference.h"
+#include "cvdnn_inference/inference.h"
+#include "openvino_inference/inference.h"
+
+
+void onnxDetector(OnnxRuntimeInference::YOLO_V8& yoloDetector, cv::Mat& img,std::vector<BoundingBox>& bBoxes) {
+        if (img.empty()) {
+            std::cerr << "Error loading image" << std::endl;
+            return;
+        }        
+        yoloDetector.RunSession(img,bBoxes);        
+        return;
+}
+
+void cvdnnDetector(CvdnnInference::Inference& inf, cv::Mat& frame, std::vector<BoundingBox>& bBoxes) {
+        if (frame.empty()) {
+            std::cerr << "Error loading image" << std::endl;
+            return;
+        }
+
+        std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+        std::vector<CvdnnInference::Detection> output = inf.runInference(frame,bBoxes);
+        std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+
+        double inference_time = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
+        int fps_ = static_cast<int>(1000.0 / inference_time);
+
+        // std::cout << "Inference time = " << inference_time  << "[ms]" << std::endl;
+        // std::cout << "FPS = " << fps_ << "[fps]" << std::endl;
+
+        std::string fpsText = "FPS: " + std::to_string(fps_);
+        // cv::putText(frame, fpsText, cv::Point(10, 30), cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0, 255, 0), 2, 8);
+        return;
+}
+
+void openvinoDetector(OpenVinoInference::Inference& inference,cv::Mat& image, std::vector<BoundingBox>& bBoxes) {       
+        // Check if the image was successfully loaded
+        if (image.empty()) {
+            std::cerr << "ERROR: image is empty" << std::endl;
+            return;
+        }        
+        // Run inference on the input image
+        inference.RunInference(image,bBoxes); 
+        return;
+    
+}
+
 
 using namespace std;
 
@@ -35,15 +82,69 @@ int main(int argc, const char *argv[])
     string imgPrefix = "KITTI/2011_09_26/image_02/data/000000"; // left camera, color
     string imgFileType = ".png";
     int imgStartIndex = 0; // first file index to load (assumes Lidar and camera names have identical naming convention)
-    int imgEndIndex = 18;   // last file index to load
+    int imgEndIndex = 50;   // last file index to load
     int imgStepWidth = 1; 
     int imgFillWidth = 4;  // no. of digits which make up the file index (e.g. img-0001.png)
 
-    // object detection
-    string yoloBasePath = dataPath + "dat/yolo/";
-    string yoloClassesFile = yoloBasePath + "coco.names";
-    string yoloModelConfiguration = yoloBasePath + "yolov3.cfg";
-    string yoloModelWeights = yoloBasePath + "yolov3.weights";
+    // Parse command line argument for inference method (openvino, onnxruntime, cv::dnn)
+    std::string inferenceMethod = "openvino"; // Default to openvino
+    if (argc > 1) {
+        inferenceMethod = argv[1]; // Read from command-line argument
+    }
+    else {
+        std::cout << "Default inference method: " << inferenceMethod << std::endl;
+        std::cout << "For other inference methods, please provide the method name as an argument. Options are: openvino, onnxruntime, cvdnn" << std::endl;
+        std::cout << "Example: ./3D_object_tracking openvino" << std::endl;
+    }
+
+    //onnxruntime
+    OnnxRuntimeInference::YOLO_V8 yoloDetector;
+    OnnxRuntimeInference::DL_INIT_PARAM params;
+    params.rectConfidenceThreshold = 0.5;
+    params.iouThreshold = 0.5;
+    params.modelPath = dataPath + "dat/yolov8n_st_quant.onnx";
+    params.imgSize = {640, 640};
+    yoloDetector.CreateSession(params);
+
+    //cvdnn
+    const cv::String  modelConfig  = dataPath + "dat/yolov8n_int8.xml";
+    const cv::String  modelWeights = dataPath + "dat/yolov8n_int8.bin";
+    CvdnnInference::Inference inf(modelConfig,modelWeights, cv::Size(640, 640));
+
+    //openvino
+    const float confidence_threshold = 0.5;
+    const float NMS_threshold = 0.5;
+    const std::string model_path = dataPath + "dat/yolov8n_int8.xml";
+    OpenVinoInference::Inference inference(model_path, cv::Size(640, 640), confidence_threshold, NMS_threshold);
+    
+    bool openvinoinference = false;
+    bool onnxruntimeinference = false;
+    bool cvdnninference = false;
+
+    // Determine which inference method to use
+    if (inferenceMethod == "openvino") {
+        std::cout << "Using OpenVino Inference" << std::endl;
+        openvinoinference = true;
+        onnxruntimeinference = false;
+        cvdnninference = false;
+    } 
+    else if (inferenceMethod == "onnxruntime") {
+        std::cout << "Using ONNX Runtime Inference" << std::endl;
+        openvinoinference = false;
+        onnxruntimeinference = true;
+        cvdnninference = false;
+    }
+    else if (inferenceMethod == "cvdnn") {
+        std::cout << "Using cv::dnn Inference" << std::endl;
+        openvinoinference = false;
+        onnxruntimeinference = false;
+        cvdnninference = true;
+    }
+    else {
+        std::cerr << "Unknown inference method! Please specify 'openvino', 'onnxruntime', or 'cv::dnn'" << std::endl;
+        return -1;
+    }
+
 
     // Lidar
     string lidarPrefix = "KITTI/2011_09_26/velodyne_points/data/000000";
@@ -99,9 +200,20 @@ int main(int argc, const char *argv[])
         /* DETECT & CLASSIFY OBJECTS */
 
         float confThreshold = 0.2;
-        float nmsThreshold = 0.2;        
-        detectObjects((dataBuffer.end() - 1)->cameraImg, (dataBuffer.end() - 1)->boundingBoxes, confThreshold, nmsThreshold,
-                      yoloBasePath, yoloClassesFile, yoloModelConfiguration, yoloModelWeights, bVis);
+        float nmsThreshold = 0.2;
+        
+        auto start = std::chrono::high_resolution_clock::now();
+
+        // Call the Detector function
+        if (onnxruntimeinference) onnxDetector(yoloDetector, (dataBuffer.end() - 1)->cameraImg,(dataBuffer.end() - 1)->boundingBoxes);
+        if (cvdnninference) cvdnnDetector(inf, (dataBuffer.end() - 1)->cameraImg,(dataBuffer.end() - 1)->boundingBoxes);
+        if (openvinoinference) openvinoDetector(inference, (dataBuffer.end() - 1)->cameraImg,(dataBuffer.end() - 1)->boundingBoxes);
+
+        auto end = std::chrono::high_resolution_clock::now();
+
+        auto duration = end - start; 
+        cout << "Time taken by detectObjects: " 
+            << std::chrono::duration<double, std::milli>(duration).count() << " ms" << endl;
 
         cout << "#2 : DETECT & CLASSIFY OBJECTS done" << endl;
 
@@ -135,7 +247,7 @@ int main(int argc, const char *argv[])
         // }
 
         // Visualize 3D objects
-        bVis = true;
+        bVis = false;
         if(bVis)
         {
             show3DObjects((dataBuffer.end()-1)->boundingBoxes, cv::Size(4.0, 20.0), cv::Size(2000, 2000), true);
@@ -232,11 +344,10 @@ int main(int argc, const char *argv[])
             
             /* TRACK 3D OBJECT BOUNDING BOXES */
 
-            //// STUDENT ASSIGNMENT
-            //// TASK FP.1 -> match list of 3D objects (vector<BoundingBox>) between current and previous frame (implement ->matchBoundingBoxes)
+            //// match list of 3D objects (vector<BoundingBox>) between current and previous frame (implement ->matchBoundingBoxes)
             map<int, int> bbBestMatches;
             matchBoundingBoxes(matches, bbBestMatches, *(dataBuffer.end()-2), *(dataBuffer.end()-1)); // associate bounding boxes between current and previous frame using keypoint matches
-            //// EOF STUDENT ASSIGNMENT
+
 
             // store matches in current data frame
             (dataBuffer.end()-1)->bbMatches = bbBestMatches;
@@ -278,19 +389,16 @@ int main(int argc, const char *argv[])
                 // compute TTC for current match
                 if( currBB->lidarPoints.size()>0 && prevBB->lidarPoints.size()>0 ) // only compute TTC if we have Lidar points
                 {
-                    //// STUDENT ASSIGNMENT
-                    //// TASK FP.2 -> compute time-to-collision based on Lidar data (implement -> computeTTCLidar)
+                    //// compute time-to-collision based on Lidar data (implement -> computeTTCLidar)
                     double ttcLidar; 
                     computeTTCLidar(prevBB->lidarPoints, currBB->lidarPoints, sensorFrameRate, ttcLidar);
-                    //// EOF STUDENT ASSIGNMENT
 
-                    //// STUDENT ASSIGNMENT
-                    //// TASK FP.3 -> assign enclosed keypoint matches to bounding box (implement -> clusterKptMatchesWithROI)
-                    //// TASK FP.4 -> compute time-to-collision based on camera (implement -> computeTTCCamera)
-                    double ttcCamera;
-                    clusterKptMatchesWithROI(*currBB, (dataBuffer.end() - 2)->keypoints, (dataBuffer.end() - 1)->keypoints, (dataBuffer.end() - 1)->kptMatches);                    
-                    computeTTCCamera((dataBuffer.end() - 2)->keypoints, (dataBuffer.end() - 1)->keypoints, currBB->kptMatches, sensorFrameRate, ttcCamera);
-                    //// EOF STUDENT ASSIGNMENT
+                    // assign enclosed keypoint matches to bounding box (clusterKptMatchesWithROI)
+                    //  compute time-to-collision based on camera (computeTTCCamera)
+                    // double ttcCamera;
+                    // clusterKptMatchesWithROI(*currBB, (dataBuffer.end() - 2)->keypoints, (dataBuffer.end() - 1)->keypoints, (dataBuffer.end() - 1)->kptMatches);                    
+                    // computeTTCCamera((dataBuffer.end() - 2)->keypoints, (dataBuffer.end() - 1)->keypoints, currBB->kptMatches, sensorFrameRate, ttcCamera);
+
 
                     bVis = true;
                     if (bVis)
@@ -300,14 +408,14 @@ int main(int argc, const char *argv[])
                         cv::rectangle(visImg, cv::Point(currBB->roi.x, currBB->roi.y), cv::Point(currBB->roi.x + currBB->roi.width, currBB->roi.y + currBB->roi.height), cv::Scalar(0, 255, 0), 2);
                         
                         char str[200];
-                        sprintf(str, "TTC Lidar : %f s, TTC Camera : %f s", ttcLidar, ttcCamera);
+                        sprintf(str, "TTC Lidar : %f s", ttcLidar);
                         putText(visImg, str, cv::Point2f(80, 50), cv::FONT_HERSHEY_PLAIN, 2, cv::Scalar(0,0,255));
 
                         string windowName = "Final Results : TTC";
                         cv::namedWindow(windowName, 4);
                         cv::imshow(windowName, visImg);
                         cout << "Press key to continue to next frame" << endl;
-                        cv::waitKey(0);
+                        cv::waitKey(1);
                     }
                     bVis = false;
 

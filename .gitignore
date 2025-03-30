@@ -1,2 +1,4 @@
 build/
-dat/yolo/yolov3.weights
+dat/yolov8n_int8.bin
+dat/yolov8n_int8.xml
+dat/yolov8n_st_quant.onnx

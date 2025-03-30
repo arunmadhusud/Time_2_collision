@@ -87,19 +87,19 @@ void descKeypoints(vector<cv::KeyPoint> &keypoints, cv::Mat &img, cv::Mat &descr
 
     //     extractor = cv::xfeatures2d::BriefDescriptorExtractor::create(bytes, bOrientation);
     // }
-    else if (descriptorType.compare("ORB") == 0)
-    {
-        int nfeatures = 500;
-        float scaleFactor = 1.2f;
-        int nlevels = 8;
-        int edgeThreshold = 31;
-        int firstLevel = 0;
-        int WTA_K = 2;
-        int patchSize = 31;
-        int fastThreshold = 20;
-        // extractor = cv::ORB::create(nfeatures, scaleFactor, nlevels, edgeThreshold, firstLevel, WTA_K, scoreType, patchSize, fastThreshold);
-        extractor = cv::ORB::create(nfeatures, scaleFactor, nlevels, edgeThreshold, WTA_K, cv::ORB::HARRIS_SCORE, patchSize, fastThreshold);
-    }
+    // else if (descriptorType.compare("ORB") == 0)
+    // {
+    //     int nfeatures = 500;
+    //     float scaleFactor = 1.2f;
+    //     int nlevels = 8;
+    //     int edgeThreshold = 31;
+    //     int firstLevel = 0;
+    //     int WTA_K = 2;
+    //     int patchSize = 31;
+    //     int fastThreshold = 20;
+    //     // extractor = cv::ORB::create(nfeatures, scaleFactor, nlevels, edgeThreshold, firstLevel, WTA_K, scoreType, patchSize, fastThreshold);
+    //     extractor = cv::ORB::create(nfeatures, scaleFactor, nlevels, edgeThreshold, WTA_K, cv::ORB::HARRIS_SCORE, patchSize, fastThreshold);
+    // }
     // else if (descriptorType.compare("FREAK") == 0)
     // {
     //     bool orientationNormalized = true;
@@ -122,16 +122,16 @@ void descKeypoints(vector<cv::KeyPoint> &keypoints, cv::Mat &img, cv::Mat &descr
 
     //     extractor = cv::AKAZE::create(descriptorType, descriptorSize, descriptorChannels, threshold, nOctaves, nOctaveLayers, diffusivity);
     // }
-    else if (descriptorType.compare("SIFT") == 0)
-    {
-        int nfeatures = 0;
-        int nOctaveLayers = 3;
-        double contrastThreshold = 0.04;
-        double edgeThreshold = 10.0;
-        double sigma = 1.6;
+    // else if (descriptorType.compare("SIFT") == 0)
+    // {
+    //     int nfeatures = 0;
+    //     int nOctaveLayers = 3;
+    //     double contrastThreshold = 0.04;
+    //     double edgeThreshold = 10.0;
+    //     double sigma = 1.6;
 
-        extractor = cv::SIFT::create(nfeatures, nOctaveLayers, contrastThreshold, edgeThreshold, sigma);
-    }
+    //     extractor = cv::SIFT::create(nfeatures, nOctaveLayers, contrastThreshold, edgeThreshold, sigma);
+    // }
     else
     {
         cerr << "#3 : EXTRACT DESCRIPTORS failed. Wrong descriptorType - " << descriptorType << ". Use one of the following descriptors: BRISK, BRIEF, ORB, FREAK, AKAZE, SIFT" << endl;
@@ -311,16 +311,16 @@ void detKeypointsModern(vector<cv::KeyPoint> &keypoints, cv::Mat &img, std::stri
 
     //     detector = cv::AKAZE::create(descriptorType, descriptorSize, descriptorChannels, threshold, nOctaves, nOctaveLayers, diffusivity);
     // }
-    else if (detectorType.compare("SIFT") == 0)
-    {
-        int nfeatures = 0;
-        int nOctaveLayers = 3;
-        double contrastThreshold = 0.04;
-        double edgeThreshold = 10.0;
-        double sigma = 1.6;
+    // else if (detectorType.compare("SIFT") == 0)
+    // {
+    //     int nfeatures = 0;
+    //     int nOctaveLayers = 3;
+    //     double contrastThreshold = 0.04;
+    //     double edgeThreshold = 10.0;
+    //     double sigma = 1.6;
 
-        detector = cv::SIFT::create(nfeatures, nOctaveLayers, contrastThreshold, edgeThreshold, sigma);
-    }
+    //     detector = cv::SIFT::create(nfeatures, nOctaveLayers, contrastThreshold, edgeThreshold, sigma);
+    // }
 
     double t = (double)cv::getTickCount();
     detector->detect(img, keypoints);

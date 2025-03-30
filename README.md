@@ -2,19 +2,20 @@
 
 ## 1. Introduction
 
-This project is part of the Sensor Fusion Nanodegree at Udacity. The goal is to detect and track 3D objects using a combination of camera and LiDAR data, then calculate the Time to Collision (TTC) for each object in the ego lane using camera and LiDAR data separately. Calculating TTC is crucial for collision avoidance in autonomous driving, where precise timing can prevent accidents.
+This project is part of the Sensor Fusion Nanodegree at Udacity. The goal is to detect and track 3D objects using a combination of camera and LiDAR data, then calculate the Time to Collision (TTC) for each object in the ego lane using camera and LiDAR data. Calculating TTC is crucial for collision avoidance in autonomous driving, where precise timing can prevent accidents.
 
 The steps followed in the project are illustrated in the flow diagram below:
 
 ![project_flow](./misc/project_flow.png)
 
-## 2. 2D Object Detection using YOLO v3
+## 2. 2D Object Detection using YOLO v8
 
-The first part of the project involves detecting objects in the camera image using YOLO v3, a state-of-the-art deep learning algorithm for real-time object detection. The pretrained model is loaded using the `cv2.dnn.readNet` function. Detected bounding boxes are filtered based on confidence scores, and Non-Maximum Suppression (NMS) is applied to remove overlapping boxes. The output of the YOLO detector is shown below:
+The first step of the project involves detecting objects in camera images using YOLO v8. To improve inference speed on CPU-based systems, I integrated YOLOv8 with OpenVINO and applied static INT8 quantization. Additionally, you can switch between ONNX Runtime or OpenCV::DNN by passing command-line arguments.
 
+Before finalizing this inference method, I explored various options, including OpenCV-DNN, ONNX Runtime, and OpenVINO, for deploying YOLOv8 in C++ on CPU. The code for model quantization, along with benchmarking details for using ONNX Runtime, OpenVINO, and OpenCV’s DNN module, is available [here](https://github.com/arunmadhusud/Fast_YOLOv8_CPP)
 ![yolo_output](./misc/yolo.png)
 
-*Figure: Output of YOLO v3 object detection*
+*Figure: Output of YOLO v8 object detection*
 
 ## 3. LiDAR Point Cloud Processing
 
@@ -36,22 +37,8 @@ The 2D bounding boxes are tracked as explained above. The 3D points projected to
 
 ## 6. Calculating Time to Collision (TTC)
 
-With the tracked 3D objects in the ego lane and 2D bounding boxes in the camera image, the Time to Collision (TTC) can be calculated using the camera and LiDAR data separately.
+With the tracked 3D objects in the ego lane and 2D bounding boxes in the camera image, the Time to Collision (TTC) can be calculated using the camera and LiDAR data .
 
-### **TTC Calculation using Camera Data**
-The TTC for camera data is calculated using the following formula:
-
-```
-TTC = -dT / (1 - median(dist_ratios between keypoints of consecutive frames))
-```
-
-This method is illustrated below:
-
-![camera_ttc](./misc/ttc_camera.png)
-
-*Figure: Illustration of TTC calculation using camera data*
-
-### **TTC Calculation using LiDAR Data**
 The TTC for LiDAR data is calculated using the following formula:
 
 
@@ -71,7 +58,14 @@ This method is illustrated below:
 
 ## 7. Installation
 
-To set up the project, follow these steps:
+
+Generate the yolov8 weights file using the instrunctions given in the [repository](https://github.com/arunmadhusud/Fast_YOLOv8_CPP) and place the weights file in the dat folder. The folder structure should look like this:
+data
+  - yolov8n_int8.xml # OpenVINO IR file
+  - yolov8n_int8.bin # OpenVINO IR file
+  - yolov8n_st_quant.onnx # ONNX model file
+
+Run the following commands to build the project:
 
 ```bash
 # Clone the repository
@@ -87,7 +81,7 @@ cmake ..
 make
 
 # Run the executable
-./3D_object_tracking
+./3D_object_tracking [cvdnn|onnx|openvino]
 ```
 
 ## 3. Results
