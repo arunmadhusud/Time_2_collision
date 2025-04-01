@@ -241,10 +241,10 @@ int main(int argc, const char *argv[])
         clusterLidarWithROI((dataBuffer.end()-1)->boundingBoxes, (dataBuffer.end() - 1)->lidarPoints, shrinkFactor, P_rect_00, R_rect_00, RT);
 
         // print number of Lidar points associated with ROI
-        // for (auto it = (dataBuffer.end()-1)->boundingBoxes.begin(); it != (dataBuffer.end()-1)->boundingBoxes.end(); ++it)
-        // {
-        //     cout << "#3 : LIDAR points in bounding box " << it->boxID << " : " << it->lidarPoints.size() << endl;
-        // }
+        for (auto it = (dataBuffer.end()-1)->boundingBoxes.begin(); it != (dataBuffer.end()-1)->boundingBoxes.end(); ++it)
+        {
+            cout << "#3 : LIDAR points in bounding box " << it->boxID << " : " << it->lidarPoints.size() << endl;
+        }
 
         // Visualize 3D objects
         bVis = false;
@@ -256,10 +256,6 @@ int main(int argc, const char *argv[])
 
         cout << "#4 : CLUSTER LIDAR POINT CLOUD done" << endl;
         
-        
-        // REMOVE THIS LINE BEFORE PROCEEDING WITH THE FINAL PROJECT
-        // continue; // skips directly to the next image without processing what comes beneath
-
         /* DETECT IMAGE KEYPOINTS */
 
         // convert current image to grayscale
@@ -320,6 +316,7 @@ int main(int argc, const char *argv[])
 
         cout << "#6 : EXTRACT DESCRIPTORS done" << endl;
 
+        static bool firstFrame = true;
 
         if (dataBuffer.size() > 1) // wait until at least two images have been processed
         {
@@ -414,8 +411,14 @@ int main(int argc, const char *argv[])
                         string windowName = "Final Results : TTC";
                         cv::namedWindow(windowName, 4);
                         cv::imshow(windowName, visImg);
-                        cout << "Press key to continue to next frame" << endl;
-                        cv::waitKey(1);
+                        if (firstFrame) {
+                            cout << "Resize the window as needed. Waiting for 5 seconds..." << endl;
+                            cv::waitKey(5000);  // Wait for 5 seconds only for the first frame
+                            firstFrame = false;
+                        } else {
+                            cv::waitKey(1);
+                        }
+                        // cv::waitKey(0);
                     }
                     bVis = false;
 
